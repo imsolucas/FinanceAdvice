@@ -1,8 +1,9 @@
-// lib/apiClient.js
-import axios from 'axios';
+type Message = {
+  role: string;
+  content: string;
+};
 
-// lib/apiClient.ts
-export async function getFinancialAdvice(messages: any) {
+export async function getFinancialAdvice(messages: Message[]) {
   const res = await fetch('/api/advice', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -13,4 +14,3 @@ export async function getFinancialAdvice(messages: any) {
   console.log('API returned:', data);
   return data;
 }
-

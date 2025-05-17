@@ -1,11 +1,31 @@
 "use client";
-import { useState, FormEvent } from "react";
+import { useState } from "react";
 import { getFinancialAdvice } from "../lib/apiClient";
 
-export default function FinancialAdvisorForm() {
+type FinancialAdvisorFormProps = {
+  onComplete: () => void;
+};
+
+type Message = {
+  role: string;
+  content: string;
+};
+
+export default function FinancialAdvisorForm({
+  onComplete,
+}: FinancialAdvisorFormProps) {
   const [income, setIncome] = useState("");
   const [goal, setGoal] = useState("");
-  const [expenses, setExpenses] = useState({
+  const [expenses, setExpenses] = useState<{
+    [key: string]: string;
+    rent: string;
+    loan: string;
+    entertainment: string;
+    food: string;
+    education: string;
+    emergency: string;
+    transport: string;
+  }>({
     rent: "",
     loan: "",
     entertainment: "",
@@ -16,14 +36,18 @@ export default function FinancialAdvisorForm() {
   });
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]); // store messages for rendering
 
-  const handleExpenseChange = (e: { target: { name: any; value: any; }; }) => {
+  const handleExpenseChange = (e: {
+    target: { name: string; value: string };
+  }) => {
     setExpenses({ ...expenses, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async (e: { preventDefault: () => void; }) => {
+  const handleSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
     setLoading(true);
+
     const messageContent = `
 My goal is RM${goal}. I earn RM${income} monthly. Here are my expenses:
 Rent: RM${expenses.rent}
@@ -32,9 +56,9 @@ Entertainment: RM${expenses.entertainment}
 Food: RM${expenses.food}
 Education: RM${expenses.education}
 Emergency: RM${expenses.emergency}
-Oil and gas: RM${expenses.transport}
-    `.trim();
-    const messages = [
+Oil and gas: RM${expenses.transport}`.trim();
+
+    const newMessages: Message[] = [
       {
         role: "system",
         content: `You are an Intelligent Financial Advisor integrated into a personal finance platform. Your core responsibility is to help users analyze their income and expenses, plan for savings goals, and make financially sound decisions based on their unique financial situation.
@@ -62,29 +86,34 @@ Restrictions:
         content: messageContent,
       },
     ];
+
+    setMessages(newMessages); // store for rendering
+
     try {
-      const result = await getFinancialAdvice(messages);
+      const result = await getFinancialAdvice(newMessages);
       if (result.error) {
         setResponse(`Error: ${result.error}`);
       } else {
         setResponse(result.output?.text || "No response from assistant.");
       }
     } catch (err) {
-      setResponse(`Error: ${err.message || err}`);
+      if (err instanceof Error) {
+        console.error(err.message);
+        onComplete();
+      } else {
+        console.error("Unexpected error", err);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Function to format the response with proper styling
   const formatResponse = (text: string) => {
-    // Replace bold markers with span elements
-    const boldedText = text.replace(/\*\*(.*?)\*\*/g, '<span class="font-bold">$1</span>');
-    
-    // Convert line breaks to <br> tags
-    const formattedText = boldedText.replace(/\n/g, '<br>');
-    
-    return formattedText;
+    const boldedText = text.replace(
+      /\*\*(.*?)\*\*/g,
+      '<span class="font-bold">$1</span>'
+    );
+    return boldedText.replace(/\n/g, "<br>");
   };
 
   return (
@@ -95,7 +124,6 @@ Restrictions:
 
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Income and Goal */}
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -108,10 +136,8 @@ Restrictions:
                 required
                 className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-black"
                 placeholder="e.g. 5000"
-                style={{ color: "black" }}
               />
             </div>
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Savings Goal (RM)
@@ -121,14 +147,12 @@ Restrictions:
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
                 required
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-black"
                 placeholder="e.g. 20000"
-                style={{ color: "black" }}
               />
             </div>
           </div>
 
-          {/* Expenses */}
           <div className="space-y-2">
             <h3 className="text-lg font-medium text-gray-800">
               Monthly Expenses (RM)
@@ -147,7 +171,6 @@ Restrictions:
                     required
                     className="w-full p-2 border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition text-black"
                     placeholder="0"
-                    style={{ color: "black" }}
                   />
                 </div>
               ))}
@@ -177,16 +200,62 @@ Restrictions:
         <div className="fixed top-4 right-4 w-96 max-h-[80vh] overflow-y-auto bg-white border border-blue-300 rounded-lg shadow-xl z-50">
           <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white p-3 font-semibold rounded-t-lg flex justify-between items-center">
             <h3 className="text-lg">Your Financial Advice</h3>
-            <button 
+            <button
               onClick={() => setResponse("")}
               className="text-white hover:text-gray-200 focus:outline-none"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
               </svg>
             </button>
           </div>
-          <div className="p-4 text-gray-800" dangerouslySetInnerHTML={{ __html: formatResponse(response) }}></div>
+          <div
+            className="p-4 text-gray-800"
+            dangerouslySetInnerHTML={{ __html: formatResponse(response) }}
+          ></div>
+        </div>
+      )}
+
+      {/* 🧠 Render the messages below the form (for debugging or display) */}
+      {messages.length > 0 && (
+        <div className="fixed top-4 left-4 w-96 max-h-[80vh] overflow-y-auto bg-white border border-gray-300 rounded-lg shadow-xl z-50">
+          <div className="bg-gray-700 text-white p-3 font-semibold rounded-t-lg flex justify-between items-center">
+            <h4 className="text-lg">Message History</h4>
+            <button
+              onClick={() => setMessages([])}
+              className="text-white hover:text-gray-200 focus:outline-none"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </button>
+          </div>
+          <div className="p-4 text-gray-800 space-y-2 text-sm">
+            {messages.map((msg, index) => (
+              <div key={index}>
+                <span className="font-semibold capitalize">{msg.role}:</span>{" "}
+                {msg.content}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
